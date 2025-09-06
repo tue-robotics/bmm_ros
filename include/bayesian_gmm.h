@@ -6,7 +6,7 @@
 #include <cmath>
 #include <ros/console.h>
 #include <geolib/datatypes.h>
-
+#include "ed/kinect/entity_update.h"
 struct GMMParams {
     float alpha;
     float kappa0;

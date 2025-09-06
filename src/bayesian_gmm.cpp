@@ -1,4 +1,4 @@
-#include "ed/kinect/bayesian_gmm.h"
+#include "bayesian_gmm.h"
 
 
 MAPGMM::MAPGMM(int n_components, const std::vector<geo::Vec3>& points, const GMMParams & params) : K_(n_components), inlier_component_(0), params_(params) {

@@ -15,24 +15,24 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(catkin REQUIRED
   COMPONENTS
-  # roscpp
-  # tue_config
-  # tue_filesystem
-  # code_profiler
-
-  #onnxruntime_ros
+  roscpp
+  geolib2
+  ed
+  ed_sensor_integration
 )
+
+# Find Eigen (header-only, but export target is modern and preferred)
+find_package(Eigen3 REQUIRED NO_MODULE)
 
 # ------------------------------------------------------------------------------------------------
 #                                        CATKIN EXPORT
 # ------------------------------------------------------------------------------------------------
-
+# Declare the catkin package and what we export to dependents
 catkin_package(
   INCLUDE_DIRS include
-  #LIBRARIES ${PROJECT_NAME}
-  LIBRARIES sam_onnx_ros_core
-  CATKIN_DEPENDS
-  DEPENDS OpenCV
+  LIBRARIES bmm_ros_lib
+  CATKIN_DEPENDS roscpp geolib2 ed ed_sensor_integration
+  DEPENDS Eigen3
 )
 
 include_directories(
@@ -40,17 +40,35 @@ include_directories(
 )
 
 # Build core library (no main.cpp here)
-add_library(bmm_ros_core
+add_library(bmm_ros_lib
         src/bayesian_gmm.cpp
         src/variational_gmm.cpp
 )
-target_link_libraries(bmm_ros_core ${catkin_LIBRARIES})
-target_include_directories(bmm_ros_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# Main executable links the core lib
-add_executable(${PROJECT_NAME} src/main.cpp)
-target_link_libraries(${PROJECT_NAME} bmm_ros_core)
+target_include_directories(bmm_ros_lib
+  PUBLIC
+    include
+    ${catkin_INCLUDE_DIRS}
+    ${EIGEN3_INCLUDE_DIRS}
+)
 
+target_link_libraries(bmm_ros_lib
+  PUBLIC
+    ${catkin_LIBRARIES}
+    Eigen3::Eigen
+)
+
+# Executable (example/entry point)
+add_executable(bmm_ros_node
+  src/main.cpp
+)
+
+target_link_libraries(bmm_ros_node
+  PRIVATE
+    bmm_ros_lib
+    ${catkin_LIBRARIES}
+    Eigen3::Eigen
+)
 # # # Enable testing
 # if (CATKIN_ENABLE_TESTING)
 # #   find_package(catkin_lint_cmake REQUIRED)

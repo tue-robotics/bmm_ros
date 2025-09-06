@@ -1,4 +1,4 @@
-#include "ed/kinect/variational_gmm.h"
+#include "variational_gmm.h"
 #include <ros/console.h>
 #include <chrono>
 #include <cmath>
