@@ -59,11 +59,11 @@ target_link_libraries(bmm_ros_lib
 )
 
 # Executable (example/entry point)
-add_executable(bmm_ros_node
+add_executable(bmm_ros
   src/main.cpp
 )
 
-target_link_libraries(bmm_ros_node
+target_link_libraries(bmm_ros
   PRIVATE
     bmm_ros_lib
     ${catkin_LIBRARIES}

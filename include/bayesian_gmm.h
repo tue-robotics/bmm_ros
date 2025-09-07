@@ -8,10 +8,10 @@
 #include <geolib/datatypes.h>
 #include "ed/kinect/entity_update.h"
 struct GMMParams {
-    float alpha;
-    float kappa0;
-    float psi0;
-    float nu0;
+    float alpha = 1.0;
+    float kappa0 = 0;
+    float psi0 = 0.5;
+    float nu0 = 4;
 };
 
 class MAPGMM {
