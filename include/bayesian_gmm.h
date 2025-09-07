@@ -18,6 +18,7 @@ class MAPGMM {
 public:
     MAPGMM(int n_components = 2,
            const std::vector<geo::Vec3>& points = std::vector<geo::Vec3>(), const GMMParams& params = GMMParams());
+
     void fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor_pose);
     std::vector<int> get_labels() const;
     int get_inlier_component() const;
