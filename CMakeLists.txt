@@ -20,6 +20,7 @@ find_package(catkin REQUIRED
   ed
   ed_sensor_integration
 )
+  find_package(PCL 1.8 REQUIRED COMPONENTS io)
 
 # Find Eigen (header-only, but export target is modern and preferred)
 find_package(Eigen3 REQUIRED NO_MODULE)
@@ -32,7 +33,7 @@ catkin_package(
   INCLUDE_DIRS include
   LIBRARIES bmm_ros_lib
   CATKIN_DEPENDS roscpp geolib2 ed ed_sensor_integration
-  DEPENDS Eigen3
+  DEPENDS Eigen3 PCL
 )
 
 include_directories(
@@ -50,12 +51,14 @@ target_include_directories(bmm_ros_lib
     include
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
 )
 
 target_link_libraries(bmm_ros_lib
   PUBLIC
     ${catkin_LIBRARIES}
     Eigen3::Eigen
+    ${PCL_LIBRARIES}
 )
 
 # Executable (example/entry point)
@@ -68,26 +71,21 @@ target_link_libraries(bmm_ros
     bmm_ros_lib
     ${catkin_LIBRARIES}
     Eigen3::Eigen
+  ${PCL_LIBRARIES}
 )
-# # # Enable testing
-# if (CATKIN_ENABLE_TESTING)
-# #   find_package(catkin_lint_cmake REQUIRED)
-# #   catkin_add_catkin_lint_test("-W2 --ignore HEADER_OUTSIDE_PACKAGE_INCLUDE_PATH")
+# # Enable testing
+if (CATKIN_ENABLE_TESTING)
+#   find_package(catkin_lint_cmake REQUIRED)
+#   catkin_add_catkin_lint_test("-W2 --ignore HEADER_OUTSIDE_PACKAGE_INCLUDE_PATH")
 
-#  # Utils unit tests (no models needed)
-#   catkin_add_gtest(utils_tests test/test_utils.cpp)
-#   if(TARGET utils_tests)
-#     target_link_libraries(utils_tests sam_onnx_ros_core GTest::gtest_main ${catkin_LIBRARIES})
-#     target_include_directories(utils_tests PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-#   endif()
+ # Bmm unit tests (no models needed)
+  catkin_add_gtest(bmm_test test/bmm_test.cpp)
+  if(TARGET bmm_test)
+    target_link_libraries(bmm_test bmm_ros_lib GTest::gtest_main ${catkin_LIBRARIES})
+    target_include_directories(bmm_test PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  endif()
 
-#   # SAM integration-ish tests (may need models)
-#   catkin_add_gtest(sam_tests test/sam_test.cpp)
-#   if(TARGET sam_tests)
-#     target_link_libraries(sam_tests sam_onnx_ros_core GTest::gtest_main ${catkin_LIBRARIES})
-#     target_include_directories(sam_tests PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-#   endif()
-# endif()
+endif()
 
 
 

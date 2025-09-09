@@ -129,6 +129,10 @@ void MAPGMM::computeBoundingVolume(const Eigen::MatrixXd& data) {
     Eigen::Vector3d min_vals = data.colwise().minCoeff();
     Eigen::Vector3d max_vals = data.colwise().maxCoeff();
     volume_ = (max_vals - min_vals).prod();  // volume = (xmax - xmin) * (ymax - ymin) * (zmax - zmin)
+    if (volume_ <= 1e-12) {
+        volume_ = 1e-6;  // avoid division by zero in uniform component
+        ROS_WARN("MAP-GMM: bounding volume too small, clamping to %g", volume_);
+    }
 }
 
 double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp_) {
@@ -151,11 +155,26 @@ double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp_) {
             else{
             Eigen::Vector3d diff = x - means_[k];
 
-            double log_prob = -0.5 * diff.transpose() * covs_[k].inverse() * diff
-                            - 0.5 * std::log(covs_[k].determinant())
+            // Regularize covariance for numerical stability
+            // If NOT:
+            // double log_prob = -0.5 * diff.transpose() * covs_[k].inverse() * diff
+            //                 - 0.5 * std::log(covs_[k].determinant())
+            //                 - 1.5 * std::log(2 * M_PI);
+            Eigen::Matrix3d Sigma = covs_[k] + Eigen::Matrix3d::Identity() * 1e-9;
+            double det = Sigma.determinant();
+            if (det <= 1e-18 || !std::isfinite(det)) {
+                Sigma += Eigen::Matrix3d::Identity() * 1e-6;
+                det = Sigma.determinant();
+            }
+            double quad = (diff.transpose() * Sigma.inverse() * diff)(0,0);
+            if (!std::isfinite(quad)) quad = 1e6;  // fallback large cost
+
+            double log_prob = -0.5 * quad
+                            - 0.5 * std::log(std::max(det, 1e-24))
                             - 1.5 * std::log(2 * M_PI);
 
-            log_probs(i, k) = std::log(weights_[k]) + log_prob;
+            double w = std::max(weights_[k], 1e-12);
+            log_probs(i, k) = std::log(w) + log_prob;
             }
         }
     }
