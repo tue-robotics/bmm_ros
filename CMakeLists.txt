@@ -18,7 +18,6 @@ find_package(catkin REQUIRED
   roscpp
   geolib2
   ed
-  ed_sensor_integration
 )
   find_package(PCL 1.8 REQUIRED COMPONENTS io)
 
@@ -32,7 +31,7 @@ find_package(Eigen3 REQUIRED NO_MODULE)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES bmm_ros_lib
-  CATKIN_DEPENDS roscpp geolib2 ed ed_sensor_integration
+  CATKIN_DEPENDS roscpp geolib2 ed
   DEPENDS Eigen3 PCL
 )
 
