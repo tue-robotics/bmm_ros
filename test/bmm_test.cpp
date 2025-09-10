@@ -90,6 +90,10 @@ protected:
         std::srand(1337);
 
         GMMParams params; // defaults from header
+        params.alpha = 1.0;   // Dirichlet prior (1.0 = uniform)
+        params.kappa0 = 0.0; // weak mean prior
+        params.psi0 = 0.05;    // weak covariance prior
+        params.nu0 = 4.0;     // min value for 3D
         MAPGMM gmm(K, points, params);
         geo::Pose3D sensor_pose = geo::Pose3D::identity();
         gmm.fit(points, sensor_pose);

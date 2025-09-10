@@ -8,10 +8,10 @@
 #include <geolib/datatypes.h>
 
 struct GMMParams {
-    float alpha = 1.0;
-    float kappa0 = 0;
-    float psi0 = 0.5;
-    float nu0 = 4;
+    float alpha;
+    float kappa0;
+    float psi0;
+    float nu0;
 };
 
 class MAPGMM {

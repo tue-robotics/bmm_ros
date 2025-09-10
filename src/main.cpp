@@ -73,6 +73,10 @@ static void populateSynthetic(std::vector<geo::Vec3>& cluster,
 int main() {
   // Synthetic input
   GMMParams params; // defaults from header
+  params.alpha = 1.0;   // Dirichlet prior (1.0 = uniform)
+  params.kappa0 = 0.0; // weak mean prior
+  params.psi0 = 0.05;    // weak covariance prior
+  params.nu0 = 4.0;     // min value for 3D
   std::vector<geo::Vec3> cluster;
   std::vector<int> gt_labels;  // 1=cluster, 0=noise
   populateSynthetic(cluster, gt_labels);
