@@ -2,49 +2,46 @@ cmake_minimum_required(VERSION 3.0.2)
 
 project(bmm_ros)
 
-# Warnings
-add_compile_options(-Wall -Wextra)
+# -------------- CMake Policies ------------------#
+add_compile_options(-Wall -Werror=all)
+add_compile_options(-Wextra -Werror=extra)
 
-# C++17
+# -------------- Support C++17 for using filesystem  ------------------#
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Catkin and ROS deps
+# Catkin and ROS deps (rosconsole for ROS_* logging)
 find_package(catkin REQUIRED COMPONENTS
-  roscpp
   geolib2
-  ed
+  rosconsole
 )
 
-# Eigen3 (header-only)
+# Find Eigen (header-only, but export target is modern and preferred)
 find_package(Eigen3 REQUIRED NO_MODULE)
 
 # PCL (for PCD IO)
 find_package(PCL 1.8 REQUIRED COMPONENTS io)
+add_definitions(${PCL_DEFINITIONS})
 
-# ------------------------------------------------------------------------------
-# Export config (make Eigen variables visible to catkin to silence warning)
-# Note: catkin_package(DEPENDS <Token>) expects <Token>_INCLUDE_DIRS / _LIBRARIES.
-# We use 'EIGEN3' (matches EIGEN3_INCLUDE_DIRS) to avoid case mismatch.
+# ------------------------------------------------------------------------------------------------
+#                                        CATKIN EXPORT
+# ------------------------------------------------------------------------------------------------
+# Declare the catkin package and what we export to dependents
 set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
-# Header-only; library target is optional:
-# set(EIGEN3_LIBRARIES Eigen3::Eigen)
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES bmm_ros_lib
-  CATKIN_DEPENDS roscpp geolib2 ed
+  CATKIN_DEPENDS geolib2 rosconsole
   DEPENDS EIGEN3 PCL
 )
 
-# ------------------------------------------------------------------------------
-# Targets
 
-# Core library
+# Build core library (no main.cpp here)
 add_library(bmm_ros_lib
-  src/bayesian_mixture_model.cpp
-  src/variational_gmm.cpp
+        src/bayesian_mixture_model.cpp
+        src/variational_gmm.cpp
 )
 
 target_include_directories(bmm_ros_lib
@@ -62,7 +59,7 @@ target_link_libraries(bmm_ros_lib
     ${PCL_LIBRARIES}
 )
 
-# Example executable
+# Executable (example/entry point)
 add_executable(bmm_ros
   src/main.cpp
 )
@@ -72,29 +69,22 @@ target_link_libraries(bmm_ros
     bmm_ros_lib
     ${catkin_LIBRARIES}
     Eigen3::Eigen
-    ${PCL_LIBRARIES}
+  ${PCL_LIBRARIES}
 )
 
-# ------------------------------------------------------------------------------
 # Tests
 if (CATKIN_ENABLE_TESTING)
-  find_package(GTest REQUIRED)
+  # catkin_add_gtest creates target bmm_test and links gtest
   catkin_add_gtest(bmm_test test/bmm_test.cpp)
   if (TARGET bmm_test)
-    target_include_directories(bmm_test PRIVATE
-      ${CMAKE_CURRENT_SOURCE_DIR}/include
-      ${catkin_INCLUDE_DIRS}
-      ${EIGEN3_INCLUDE_DIRS}
-      ${PCL_INCLUDE_DIRS}
-    )
+    # Use the plain signature here because catkin_add_gtest used it internally
     target_link_libraries(bmm_test
-      PRIVATE
-        bmm_ros_lib
-        ${catkin_LIBRARIES}
-        Eigen3::Eigen
-        ${PCL_LIBRARIES}
-        GTest::GTest
-        GTest::Main
+      bmm_ros_lib
+      ${catkin_LIBRARIES}
+      ${PCL_LIBRARIES}
+      GTest::GTest
+      GTest::Main
     )
+    # No need to add include dirs: bmm_ros_lib exports them PUBLIC
   endif()
 endif()
