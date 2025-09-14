@@ -1,4 +1,4 @@
-#include "bayesian_mixture_model.h"
+#include "bayesian_mixture_model.hpp"
 #include <Eigen/Dense>
 #include <random>
 #include <algorithm>

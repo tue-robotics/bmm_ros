@@ -1,4 +1,4 @@
-#include "variational_gmm.h"
+#include "variational_gmm.hpp"
 #include <ros/console.h>
 #include <chrono>
 #include <cmath>

@@ -1,5 +1,5 @@
-#ifndef BAYESIAN_GMM_H_
-#define BAYESIAN_GMM_H_
+#ifndef BAYESIAN_BMM_H_
+#define BAYESIAN_BMM_H_
 
 #include <Eigen/Dense>
 #include <vector>
@@ -57,4 +57,4 @@ private:
     void computeBoundingVolume(const Eigen::MatrixXd& data);
 };
 
-#endif  // BAYESIAN_GMM_H_
+#endif  // BAYESIAN_BMM_H_
