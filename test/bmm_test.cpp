@@ -3,7 +3,7 @@
 #include <numeric>
 #include <algorithm>
 
-#include "bayesian_gmm.h"  // MAPGMM, GMMParams
+#include "bayesian_mixture_model.h"  // MAPGMM, GMMParams
 #include <geolib/datatypes.h>  // geo::Vec3, geo::Pose3D
 
 namespace {

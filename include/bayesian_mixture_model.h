@@ -35,6 +35,11 @@ private:
     GMMParams params_;
 
     // Prior hyperparameters for every component
+    // nu0: > d-1 (here d=3), pick 5–8 for mild regularization.
+    // psi0: on the order of expected variance per axis (m^2). If points are around meter scale and clusters ~10 cm stddev, psi0 ≈ 1e-2 is reasonable.
+    // kappa0: small (1e-3–1) to avoid over-shrinking means.
+    // alpha: ≥ 1 to keep weights from collapsing; increase if you want more uniform weights initially.
+
     double alpha_;  // Dirichlet prior for weights
     std::vector<Eigen::Vector3d> mu0_;  // Prior means
     std::vector<double> kappa0_;  // Prior mean strengths

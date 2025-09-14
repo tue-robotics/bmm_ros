@@ -1,4 +1,4 @@
-#include "bayesian_gmm.h"
+#include "bayesian_mixture_model.h"
 
 MAPGMM::MAPGMM(int n_components, const std::vector<geo::Vec3>& points, const GMMParams & params) : K_(n_components), inlier_component_(0), params_(params) {
     // Initialize all containers to proper sizes
@@ -30,32 +30,35 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
     int N = points.size();
     Eigen::MatrixXd data(N, 3);
 
+    // Transform points to sensor frame
     for (int i = 0; i < N; i++) {
         geo::Vec3 p_map = sensor_pose * points[i];
         data(i, 0) = p_map.x;
         data(i, 1) = p_map.y;
         data(i, 2) = p_map.z;
     }
-    // Compute bounding volume for the data
+
+    // Compute bounding volume for the data so to handle uniform outlier component
     computeBoundingVolume(data);
 
-    // Initialize parameters
+    // Initialize parameters (weights, means, covariances)
     weights_ = Eigen::VectorXd::Constant(K_, 1.0/K_);
-
     means_.resize(K_);
     covs_.resize(K_);
 
-    // Simple initialization: random points as centers
+    // Simple initialization: random points as centers for means and small covariances
     for (int k = 0; k < K_; k++) {
         int idx = rand() % N;
         means_[k] = data.row(idx).transpose();
-        covs_[k] = Eigen::Matrix3d::Identity() * 0.01;  // Small initial cov NEED TO PUT THIS ON THE PARAMETERS AS WELL
+        covs_[k] = Eigen::Matrix3d::Identity() * 0.01;  // Covariance here is not the prior but the initial guess of the cluster.
     }
 
 
     // EM iterations
     int max_iter = 100;
-    double tol = 1e-4;
+    // relative change in log-likelihood for convergence
+    double likelihood_change = 1e-4;
+    // previous log-likelihood is used to compute relative change
     double prev_log_likelihood = -1e10;
 
 
@@ -67,7 +70,7 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
 
         // Check convergence
         double change = std::abs((log_likelihood - prev_log_likelihood) / (std::abs(prev_log_likelihood) + 1e-10));
-        if (iter > 0 && change < tol) {
+        if (iter > 0 && change < likelihood_change) {
             ROS_INFO("MAP-GMM converged after %d iterations", iter);
             break;
         }
@@ -100,8 +103,10 @@ int MAPGMM::get_inlier_component() const {
 
 
 void MAPGMM::setupPriors(const std::vector<geo::Vec3>& points) {
-    if (mu0_.size() != K_ || kappa0_.size() != K_ ||
-        Psi0_.size() != K_ || nu0_.size() != K_) {
+    if (mu0_.size() != static_cast<size_t>(K_) ||
+        kappa0_.size() != static_cast<size_t>(K_) ||
+        Psi0_.size() != static_cast<size_t>(K_) ||
+        nu0_.size() != static_cast<size_t>(K_)) {
         ROS_ERROR("Prior vectors not properly initialized in MAPGMM constructor");
         return;
     }
@@ -136,14 +141,15 @@ void MAPGMM::computeBoundingVolume(const Eigen::MatrixXd& data) {
 }
 
 double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp_) {
+    // Number of data points
     int N = data.rows();
     double log_likelihood = 0.0;
 
-    // Calculate log probabilities for each point and component
+    // Calculate log probabilities for each data point and component (number of components is K_ which is uniform outlier + actual clusters)
     Eigen::MatrixXd log_probs(N, K_);
 
     for (int k = 0; k < K_; k++) {
-        // Compute multivariate normal density for all points
+        // Compute log probability of each point under component k
         for (int i = 0; i < N; i++) {
             Eigen::Vector3d x = data.row(i).transpose();
             if (k == 0) {
@@ -153,28 +159,33 @@ double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp_) {
                 continue;
             }
             else{
-            Eigen::Vector3d diff = x - means_[k];
+                Eigen::Vector3d diff = x - means_[k];
 
-            // Regularize covariance for numerical stability
-            // If NOT:
-            // double log_prob = -0.5 * diff.transpose() * covs_[k].inverse() * diff
-            //                 - 0.5 * std::log(covs_[k].determinant())
-            //                 - 1.5 * std::log(2 * M_PI);
-            Eigen::Matrix3d Sigma = covs_[k] + Eigen::Matrix3d::Identity() * 1e-9;
-            double det = Sigma.determinant();
-            if (det <= 1e-18 || !std::isfinite(det)) {
-                Sigma += Eigen::Matrix3d::Identity() * 1e-6;
-                det = Sigma.determinant();
-            }
-            double quad = (diff.transpose() * Sigma.inverse() * diff)(0,0);
-            if (!std::isfinite(quad)) quad = 1e6;  // fallback large cost
+                // Calculate log probability of x under Gaussian component k (Math is here)
+                // double log_prob = -0.5 * diff.transpose() * covs_[k].inverse() * diff
+                //                 - 0.5 * std::log(covs_[k].determinant())
+                //                 - 1.5 * std::log(2 * M_PI);
 
-            double log_prob = -0.5 * quad
-                            - 0.5 * std::log(std::max(det, 1e-24))
-                            - 1.5 * std::log(2 * M_PI);
+                // Better: Calculate log probability of x under Gaussian component k
+                // AND
+                // Regularize covariance for numerical stability
+                Eigen::Matrix3d Sigma = covs_[k] + Eigen::Matrix3d::Identity() * 1e-9;
+                double det = Sigma.determinant();
+                if (det <= 1e-18 || !std::isfinite(det)) {
+                    Sigma += Eigen::Matrix3d::Identity() * 1e-6;
+                    det = Sigma.determinant();
+                }
+                double quad = (diff.transpose() * Sigma.inverse() * diff)(0,0);
+                if (!std::isfinite(quad)) quad = 1e6;  // fallback large cost
 
-            double w = std::max(weights_[k], 1e-12);
-            log_probs(i, k) = std::log(w) + log_prob;
+                double log_prob = -0.5 * quad
+                                - 0.5 * std::log(std::max(det, 1e-24))
+                                - 1.5 * std::log(2 * M_PI);
+
+                // Max weight means the component is more likely to generate the point
+                double w = std::max(weights_[k], 1e-12);
+                // Add Dirichlet prior influence on weights
+                log_probs(i, k) = std::log(w) + log_prob;
             }
         }
     }
@@ -209,15 +220,14 @@ void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp_) {
 
         if (k == 0) continue;  // Skip outlier component for weight update since uniform distribution does not depend on data
 
-        // Calculate weighted mean of data
+        // Calculate mean of data
         Eigen::Vector3d mean_data = Eigen::Vector3d::Zero();
         for (int i = 0; i < N; i++) {
             mean_data += resp_(i, k) * data.row(i).transpose();
         }
         mean_data /= Nk;
 
-        // MAP update for mean (Normal-Wishart prior)
-        //kappa0_[k] += Nk;  // Update kappa prior
+        // Mean update with prior
         means_[k] = (Nk * mean_data + kappa0_[k] * mu0_[k]) / (Nk + kappa0_[k]);
 
         // Calculate weighted covariance of data

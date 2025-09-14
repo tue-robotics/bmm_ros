@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.0.2)
 project(bmm_ros)
 
 # -------------- CMake Policies ------------------#
-#add_compile_options(-Wall -Werror=all)
-#add_compile_options(-Wextra -Werror=extra)
+add_compile_options(-Wall -Werror=all)
+add_compile_options(-Wextra -Werror=extra)
 
 # -------------- Support C++17 for using filesystem  ------------------#
 set(CMAKE_CXX_STANDARD 17)
@@ -41,7 +41,7 @@ include_directories(
 
 # Build core library (no main.cpp here)
 add_library(bmm_ros_lib
-        src/bayesian_gmm.cpp
+        src/bayesian_mixture_model.cpp
         src/variational_gmm.cpp
 )
 
@@ -85,8 +85,6 @@ if (CATKIN_ENABLE_TESTING)
   endif()
 
 endif()
-
-
 
 #If you want to debug
 # set(CMAKE_BUILD_TYPE Debug)

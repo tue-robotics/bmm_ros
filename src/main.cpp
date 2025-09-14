@@ -1,4 +1,4 @@
-#include "bayesian_gmm.h"
+#include "bayesian_mixture_model.h"
 #include <Eigen/Dense>
 #include <random>
 #include <algorithm>
@@ -109,7 +109,7 @@ int main() {
   double recall = (TP + FN) ? double(TP) / (TP + FN) : 0.0;
   double f1     = (prec + recall) ? 2.0 * prec * recall / (prec + recall) : 0.0;
 
-  ROS_INFO("Pred inliers: %d | GT Pos: %d, Neg: %d | TP=%d FP=%d TN=%d FN=%d | P=%.3f R=%.3f F1=%.3f",
+  ROS_INFO("Pred inliers: %td | GT Pos: %d, Neg: %d | TP=%d FP=%d TN=%d FN=%d | P=%.3f R=%.3f F1=%.3f",
            std::count_if(labels.begin(), labels.end(), [&](int l){return l==inlier_component;}), Pos, Neg,
            TP, FP, TN, FN, prec, recall, f1);
 
