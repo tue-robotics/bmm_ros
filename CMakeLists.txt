@@ -55,7 +55,6 @@ include_directories(
 )
 
 target_link_libraries(${PROJECT_NAME}_lib
-  PUBLIC
     ${catkin_LIBRARIES}
     Eigen3::Eigen
     ${PCL_LIBRARIES}
@@ -67,7 +66,6 @@ add_executable(${PROJECT_NAME}
 )
 
 target_link_libraries(${PROJECT_NAME}
-  PRIVATE
     ${PROJECT_NAME}_lib
     ${catkin_LIBRARIES}
     Eigen3::Eigen
@@ -99,16 +97,11 @@ if(CATKIN_ENABLE_TESTING)
 
   # catkin_add_gtest creates target bmm_test and links gtest
   catkin_add_gtest(bmm_test test/bmm_test.cpp)
-  if (TARGET bmm_test)
-    # Use the plain signature here because catkin_add_gtest used it internally
-    target_link_libraries(bmm_test
-      PRIVATE
-        ${PROJECT_NAME}_lib
-        ${catkin_LIBRARIES}
-        ${PCL_LIBRARIES}
-        GTest::GTest
-        GTest::Main
-    )
-    # No need to add include dirs: bmm_ros_lib exports them PUBLIC
-  endif()
+  target_link_libraries(bmm_test
+    ${PROJECT_NAME}_lib
+    ${catkin_LIBRARIES}
+    ${PCL_LIBRARIES}
+    GTest::GTest
+    GTest::Main
+  )
 endif()
