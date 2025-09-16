@@ -1,9 +1,12 @@
-#include "bayesian_mixture_model.hpp"
+#include "bmm/bayesian_mixture_model.hpp"
+
+#include <console_bridge/console.h>
+
 #include <Eigen/Dense>
-#include <random>
-#include <algorithm>
 #include <pcl/io/pcd_io.h>
-#include <tuple>
+
+#include <algorithm>
+#include <random>
 #include <numeric>
 
 // Generate a tight Gaussian cluster plus uniform noise in a box
@@ -50,7 +53,7 @@ static void populateSynthetic(std::vector<geo::Vec3>& cluster,
     ++added;
   }
   if (added < n_noise) {
-    ROS_WARN("populateSynthetic: produced %d/%d noise points (tight box/exclusion)", added, n_noise);
+    CONSOLE_BRIDGE_logWarn("populateSynthetic: produced %d/%d noise points (tight box/exclusion)", added, n_noise);
   }
 
   // Shuffle points and labels with same permutation to avoid ordering bias
@@ -107,7 +110,7 @@ int main() {
   double recall = (TP + FN) ? double(TP) / (TP + FN) : 0.0;
   double f1     = (prec + recall) ? 2.0 * prec * recall / (prec + recall) : 0.0;
 
-  ROS_INFO("Pred inliers: %td | GT Pos: %d, Neg: %d | TP=%d FP=%d TN=%d FN=%d | P=%.3f R=%.3f F1=%.3f",
+  CONSOLE_BRIDGE_logInform("Pred inliers: %td | GT Pos: %d, Neg: %d | TP=%d FP=%d TN=%d FN=%d | P=%.3f R=%.3f F1=%.3f",
            std::count_if(labels.begin(), labels.end(), [&](int l){return l==inlier_component;}), Pos, Neg,
            TP, FP, TN, FN, prec, recall, f1);
 
@@ -125,9 +128,9 @@ int main() {
   }
   cloud->width = cloud->size(); cloud->height = 1; cloud->is_dense = false;
   if (pcl::io::savePCDFileBinary("clusters_pred.pcd", *cloud) == 0) {
-    ROS_INFO("Wrote clusters_pred.pcd (green=inlier, red=outlier). View with: pcl_viewer clusters_pred.pcd");
+    CONSOLE_BRIDGE_logInform("Wrote clusters_pred.pcd (green=inlier, red=outlier). View with: pcl_viewer clusters_pred.pcd");
   } else {
-    ROS_WARN("Failed to save clusters_pred.pcd");
+    CONSOLE_BRIDGE_logWarn("Failed to save clusters_pred.pcd");
   }
 
   // Optional: inliers-only export for a quick sanity check
@@ -233,7 +236,7 @@ int main() {
 //     // Train the model
 //     cv::Mat labels, probs;
 //     if (!em_model->trainEM(samples, cv::noArray(), labels, probs)) {
-//         ROS_WARN("GMM training failed, skipping filtering");
+//         CONSOLE_BRIDGE_logWarn("GMM training failed, skipping filtering");
 //         return;
 //     }
 
@@ -281,7 +284,7 @@ int main() {
 //     int inlier_component = vbgmm.get_inlier_component();
 //     double lower_bound = vbgmm.get_lower_bound();
 
-//     ROS_INFO("VB-GMM lower bound: %.3f", lower_bound);
+//     CONSOLE_BRIDGE_logInform("VB-GMM lower bound: %.3f", lower_bound);
 
 //     // Filter points based on component assignment
 //     std::vector<geo::Vec3> filtered_points;
@@ -293,7 +296,7 @@ int main() {
 
 //     if (!filtered_points.empty()) {
 //         cluster.points = filtered_points;
-//         ROS_INFO("VB filtering: kept %zu of %zu points",
+//         CONSOLE_BRIDGE_logInform("VB filtering: kept %zu of %zu points",
 //                 filtered_points.size(), cluster.points.size());
 //     }
 // }

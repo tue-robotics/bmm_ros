@@ -4,7 +4,6 @@
 #include <Eigen/Dense>
 #include <vector>
 #include <cmath>
-#include <ros/console.h>
 #include <geolib/datatypes.h>
 
 class VBGMM {

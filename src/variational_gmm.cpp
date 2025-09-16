@@ -1,10 +1,11 @@
-#include "variational_gmm.hpp"
-#include <ros/console.h>
-#include <chrono>
-#include <cmath>
-#include <random>
+#include "bmm/variational_gmm.hpp"
+
 #include <boost/math/special_functions/digamma.hpp>
 #include <boost/math/special_functions/gamma.hpp>
+
+#include <console_bridge/console.h>
+
+#include <cmath>
 
 VBGMM::VBGMM(int n_components, const std::vector<geo::Vec3>& points) : K_(n_components), D_(3), inlier_component_(0) {
     // Initialize containers
@@ -40,7 +41,7 @@ void VBGMM::setupPriors(const std::vector<geo::Vec3>& points) {
     W0_ = Eigen::Matrix3d::Identity() * 10.0;  // Relatively uninformative
     nu0_ = D_ + 1;  // Minimum degrees of freedom for Wishart
 
-    ROS_INFO("VB-GMM: Set up priors with alpha0=%.2f, beta0=%.2f, nu0=%.2f",
+    CONSOLE_BRIDGE_logInform("VB-GMM: Set up priors with alpha0=%.2f, beta0=%.2f, nu0=%.2f",
              alpha0_, beta0_, nu0_);
 }
 
@@ -268,17 +269,19 @@ void VBGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor_
         // Compute lower bound
         lower_bound_ = computeLowerBound(data);
 
-        ROS_INFO("VB Iteration %d: Lower bound = %.6f", iter, lower_bound_);
+        CONSOLE_BRIDGE_logInform("VB Iteration %d: Lower bound = %.6f", iter, lower_bound_);
 
         // Check convergence
         double change = lower_bound_ - prev_bound;
-        if (iter > 0 && change < tol) {
-            ROS_INFO("VB-GMM converged after %d iterations", iter);
+        if (iter > 0 && change < tol)
+        {
+            CONSOLE_BRIDGE_logInform("VB-GMM converged after %d iterations", iter);
             break;
         }
 
-        if (change < 0) {
-            ROS_WARN("Lower bound decreased! Change = %.6f", change);
+        if (change < 0)
+        {
+            CONSOLE_BRIDGE_logInform("Lower bound decreased! Change = %.6f", change);
         }
 
         prev_bound = lower_bound_;
@@ -312,7 +315,7 @@ void VBGMM::determineInlierComponent() {
 
         scores[k] = 2.0 * height + compactness;
 
-        ROS_INFO("VB Component %d: height=%.3f, compactness=%.3f, score=%.3f",
+        CONSOLE_BRIDGE_logInform("VB Component %d: height=%.3f, compactness=%.3f, score=%.3f",
                 k, height, compactness, scores[k]);
     }
 
@@ -324,7 +327,7 @@ void VBGMM::determineInlierComponent() {
         }
     }
 
-    ROS_INFO("VB Selected inlier component: %d", inlier_component_);
+    CONSOLE_BRIDGE_logInform("VB Selected inlier component: %d", inlier_component_);
 }
 
 // Getter methods

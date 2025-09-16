@@ -1,4 +1,6 @@
-#include "bayesian_mixture_model.hpp"
+#include "bmm/bayesian_mixture_model.hpp"
+
+#include <console_bridge/console.h>
 
 MAPGMM::MAPGMM(int n_components, const std::vector<geo::Vec3>& points, const GMMParams & params) : K_(n_components), inlier_component_(0), params_(params) {
     // Initialize all containers to proper sizes
@@ -71,7 +73,7 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
         // Check convergence
         double change = std::abs((log_likelihood - prev_log_likelihood) / (std::abs(prev_log_likelihood) + 1e-10));
         if (iter > 0 && change < likelihood_change) {
-            ROS_INFO("MAP-GMM converged after %d iterations", iter);
+            CONSOLE_BRIDGE_logInform("MAP-GMM converged after %d iterations", iter);
             break;
         }
         prev_log_likelihood = log_likelihood;
@@ -107,7 +109,7 @@ void MAPGMM::setupPriors(const std::vector<geo::Vec3>& points) {
         kappa0_.size() != static_cast<size_t>(K_) ||
         Psi0_.size() != static_cast<size_t>(K_) ||
         nu0_.size() != static_cast<size_t>(K_)) {
-        ROS_ERROR("Prior vectors not properly initialized in MAPGMM constructor");
+        CONSOLE_BRIDGE_logError("Prior vectors not properly initialized in MAPGMM constructor");
         return;
     }
     // Dirichlet prior for weights (alpha>1 favors more uniform weights)
@@ -136,7 +138,7 @@ void MAPGMM::computeBoundingVolume(const Eigen::MatrixXd& data) {
     volume_ = (max_vals - min_vals).prod();  // volume = (xmax - xmin) * (ymax - ymin) * (zmax - zmin)
     if (volume_ <= 1e-12) {
         volume_ = 1e-6;  // avoid division by zero in uniform component
-        ROS_WARN("MAP-GMM: bounding volume too small, clamping to %g", volume_);
+        CONSOLE_BRIDGE_logWarn("MAP-GMM: bounding volume too small, clamping to %g", volume_);
     }
 }
 
@@ -274,6 +276,6 @@ void MAPGMM::determineInlierComponent() {
         }
     }
 
-    ROS_INFO("Bayesian selection: inlier component = %d (Nk = %.2f)", inlier_component_, Nk[inlier_component_]);
+    CONSOLE_BRIDGE_logInform("Bayesian selection: inlier component = %d (Nk = %.2f)", inlier_component_, Nk[inlier_component_]);
 
 }

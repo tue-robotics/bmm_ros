@@ -11,11 +11,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Catkin and ROS deps (rosconsole for ROS_* logging)
 find_package(catkin REQUIRED COMPONENTS
   geolib2
-  rosconsole
 )
+
+find_package(Boost REQUIRED)
+find_package(console_bridge REQUIRED)
 
 # Find Eigen (header-only, but export target is modern and preferred)
 find_package(Eigen3 REQUIRED NO_MODULE)
@@ -32,27 +33,28 @@ set(EIGEN3_INCLUDE_DIRS ${EIGEN3_INCLUDE_DIRS})
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES bmm_ros_lib
-  CATKIN_DEPENDS geolib2 rosconsole
-  DEPENDS EIGEN3 PCL
+  LIBRARIES ${PROJECT_NAME}_lib
+  CATKIN_DEPENDS geolib2
+  DEPENDS EIGEN3 PCL console_bridge
 )
 
 
 # Build core library (no main.cpp here)
-add_library(bmm_ros_lib
+add_library(${PROJECT_NAME}_lib
         src/bayesian_mixture_model.cpp
         src/variational_gmm.cpp
 )
 
-target_include_directories(bmm_ros_lib
-  PUBLIC
-    include
-    ${catkin_INCLUDE_DIRS}
-    ${EIGEN3_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS}
+include_directories(
+  include
+  SYSTEM
+  ${catkin_INCLUDE_DIRS}
+  ${console_bridge_INCLUDE_DIRS}
+  ${EIGEN3_INCLUDE_DIRS}
+  ${PCL_INCLUDE_DIRS}
 )
 
-target_link_libraries(bmm_ros_lib
+target_link_libraries(${PROJECT_NAME}_lib
   PUBLIC
     ${catkin_LIBRARIES}
     Eigen3::Eigen
@@ -60,33 +62,52 @@ target_link_libraries(bmm_ros_lib
 )
 
 # Executable (example/entry point)
-add_executable(bmm_ros
+add_executable(${PROJECT_NAME}
   src/main.cpp
 )
 
-target_link_libraries(bmm_ros
+target_link_libraries(${PROJECT_NAME}
   PRIVATE
-    bmm_ros_lib
+    ${PROJECT_NAME}_lib
     ${catkin_LIBRARIES}
     Eigen3::Eigen
-  ${PCL_LIBRARIES}
+    ${PCL_LIBRARIES}
 )
 
-# Tests
+install(
+  DIRECTORY include/
+  DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
+)
+
+install(
+  TARGETS
+    ${PROJECT_NAME}_lib
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
+
+install(
+  TARGETS
+    ${PROJECT_NAME}
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
 if(CATKIN_ENABLE_TESTING)
   find_package(catkin_lint_cmake REQUIRED)
-  catkin_add_catkin_lint_test("-W2")
+  catkin_add_catkin_lint_test("-W2 --ignore HEADER_OUTSIDE_PACKAGE_INCLUDE_PATH")
 
   # catkin_add_gtest creates target bmm_test and links gtest
   catkin_add_gtest(bmm_test test/bmm_test.cpp)
   if (TARGET bmm_test)
     # Use the plain signature here because catkin_add_gtest used it internally
     target_link_libraries(bmm_test
-      bmm_ros_lib
-      ${catkin_LIBRARIES}
-      ${PCL_LIBRARIES}
-      GTest::GTest
-      GTest::Main
+      PRIVATE
+        ${PROJECT_NAME}_lib
+        ${catkin_LIBRARIES}
+        ${PCL_LIBRARIES}
+        GTest::GTest
+        GTest::Main
     )
     # No need to add include dirs: bmm_ros_lib exports them PUBLIC
   endif()

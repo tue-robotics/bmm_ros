@@ -14,14 +14,16 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
+  <depend>geolib2</depend>
+  <depend>libconsole-bridge-dev</depend>
+
   <build_depend>eigen</build_depend>
-  <build_depend>geolib2</build_depend>
+  <build_depend>libboost-math-dev</build_depend>
   <build_depend>libpcl-all-dev</build_depend>
   <build_depend>libpcl-io</build_depend>
-  <build_depend>rosconsole</build_depend>
 
   <exec_depend>eigen</exec_depend>
-  <exec_depend>geolib2</exec_depend>
+  <exec_depend>libboost-math-dev</exec_depend>
   <exec_depend>libpcl-io</exec_depend>
   <exec_depend>rosconsole</exec_depend>
 
