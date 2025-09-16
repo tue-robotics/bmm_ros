@@ -15,15 +15,17 @@
   <buildtool_depend>catkin</buildtool_depend>
 
   <build_depend>eigen</build_depend>
-  <exec_depend>eigen</exec_depend>
   <build_depend>geolib2</build_depend>
-  <exec_depend>geolib2</exec_depend>
   <build_depend>libpcl-io</build_depend>
-  <exec_depend>libpcl-io</exec_depend>
   <build_depend>rosconsole</build_depend>
+
+  <exec_depend>eigen</exec_depend>
+  <exec_depend>geolib2</exec_depend>
+  <exec_depend>libpcl-io</exec_depend>
   <exec_depend>rosconsole</exec_depend>
 
   <test_depend>catkin_lint_cmake</test_depend>
+
   <doc_depend>doxygen</doc_depend>
 
   <export>
