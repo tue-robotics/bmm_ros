@@ -7,6 +7,7 @@
   <version>0.0.0</version>
   <description>Bayesian Mixture Model (BMM) pointcloud denoising</description>
 
+  <author email="iasonth95@gmail.com">Iason Theodorou</author>
   <maintainer email="iasonth95@gmail.com">Iason Theodorou</maintainer>
 
   <license>BSD</license>
