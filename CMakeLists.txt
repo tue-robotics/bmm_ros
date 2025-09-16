@@ -73,7 +73,10 @@ target_link_libraries(bmm_ros
 )
 
 # Tests
-if (CATKIN_ENABLE_TESTING)
+if(CATKIN_ENABLE_TESTING)
+  find_package(catkin_lint_cmake REQUIRED)
+  catkin_add_catkin_lint_test("-W2")
+
   # catkin_add_gtest creates target bmm_test and links gtest
   catkin_add_gtest(bmm_test test/bmm_test.cpp)
   if (TARGET bmm_test)
