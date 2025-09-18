@@ -7,14 +7,16 @@
 #include <ros/console.h>
 #include <geolib/datatypes.h>
 
-struct GMMParams {
+struct GMMParams
+{
     float alpha;
     float kappa0;
     float psi0;
     float nu0;
 };
 
-class MAPGMM {
+class MAPGMM
+{
 public:
     MAPGMM(int n_components = 2,
            const std::vector<geo::Vec3>& points = std::vector<geo::Vec3>(), const GMMParams& params = GMMParams());

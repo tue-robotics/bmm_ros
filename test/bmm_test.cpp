@@ -6,7 +6,8 @@
 #include "bmm/bayesian_mixture_model.hpp"  // MAPGMM, GMMParams
 #include <geolib/datatypes.h>  // geo::Vec3, geo::Pose3D
 
-namespace {
+namespace
+{
 
 // Synthetic data generator similar to main.cpp::populateSynthetic but without EntityUpdate
 static void generateSynthetic(std::vector<geo::Vec3>& points,
@@ -32,7 +33,8 @@ static void generateSynthetic(std::vector<geo::Vec3>& points,
     points.reserve(static_cast<size_t>(n_cluster + n_noise));
     gt_labels.reserve(static_cast<size_t>(n_cluster + n_noise));
 
-    for (int i = 0; i < n_cluster; ++i) {
+    for (int i = 0; i < n_cluster; ++i)
+    {
         geo::Vec3 v; v.x = ndx(rng); v.y = ndy(rng); v.z = ndz(rng);
         points.push_back(v);
         gt_labels.push_back(1);
@@ -41,7 +43,8 @@ static void generateSynthetic(std::vector<geo::Vec3>& points,
     int added = 0;
     int tries = 0;
     const int max_tries = n_noise * 50;
-    while (added < n_noise && tries++ < max_tries) {
+    while (added < n_noise && tries++ < max_tries)
+    {
         geo::Vec3 v; v.x = cx + ud(rng); v.y = cy + ud(rng); v.z = cz + ud(rng);
         double dx = v.x - cx, dy = v.y - cy, dz = v.z - cz;
         if (dx*dx + dy*dy + dz*dz <= Re2) continue;
@@ -57,7 +60,8 @@ static void generateSynthetic(std::vector<geo::Vec3>& points,
 
     std::vector<geo::Vec3> pts_shuf; pts_shuf.reserve(points.size());
     std::vector<int>      lab_shuf; lab_shuf.reserve(gt_labels.size());
-    for (size_t i = 0; i < idx.size(); ++i) {
+    for (size_t i = 0; i < idx.size(); ++i)
+    {
         pts_shuf.push_back(points[idx[i]]);
         lab_shuf.push_back(gt_labels[idx[i]]);
     }
@@ -65,7 +69,8 @@ static void generateSynthetic(std::vector<geo::Vec3>& points,
     gt_labels.swap(lab_shuf);
 }
 
-struct Case {
+struct Case
+{
     int n_cluster;
     int n_noise;
     double stddev;
@@ -75,7 +80,8 @@ struct Case {
 } // namespace
 
 // Base fixture
-class BmmInferenceTest : public ::testing::Test {
+class BmmInferenceTest : public ::testing::Test
+{
 protected:
     void SetUp() override { }
     void TearDown() override { }
@@ -108,7 +114,8 @@ protected:
     {
         size_t N = std::min(labels.size(), gt_labels.size());
         int TP=0, TN=0, FP=0, FN=0;
-        for (size_t i = 0; i < N; ++i) {
+        for (size_t i = 0; i < N; ++i)
+        {
             bool pred_in = (labels[i] == inlier_component);
             bool gt_in   = (gt_labels[i] == 1);
             if (pred_in && gt_in) ++TP;
@@ -125,7 +132,9 @@ protected:
 
 // Parameterized suite sweeps sizes/noise
 class BmmInferenceParamTest : public BmmInferenceTest,
-                              public ::testing::WithParamInterface<Case> {};
+                              public ::testing::WithParamInterface<Case>
+{
+};
 
 TEST_P(BmmInferenceParamTest, FittingQualityAboveThreshold)
 {
@@ -141,7 +150,8 @@ TEST_P(BmmInferenceParamTest, FittingQualityAboveThreshold)
     ASSERT_EQ(labels.size(), pts.size());
     ASSERT_NE(inlier_component, -1);
     // Ensure valid label range
-    for (int l : labels) {
+    for (int l : labels)
+    {
         ASSERT_GE(l, 0);
         ASSERT_LT(l, 2);
     }

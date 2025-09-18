@@ -13,7 +13,8 @@
 static void populateSynthetic(std::vector<geo::Vec3>& cluster,
                               std::vector<int>& gt_labels,  // 1 = cluster, 0 = noise
                               int n_cluster = 10000,
-                              int n_noise = 1500) {
+                              int n_noise = 1500)
+{
   cluster.clear();
   gt_labels.clear();
 
@@ -34,7 +35,8 @@ static void populateSynthetic(std::vector<geo::Vec3>& cluster,
   gt_labels.reserve(static_cast<size_t>(n_cluster + n_noise));
 
   // Cluster points: Gaussian ball
-  for (int i = 0; i < n_cluster; ++i) {
+  for (int i = 0; i < n_cluster; ++i)
+  {
     geo::Vec3 v; v.x = ndx(rng); v.y = ndy(rng); v.z = ndz(rng);
     cluster.push_back(v);
     gt_labels.push_back(1);
@@ -44,7 +46,8 @@ static void populateSynthetic(std::vector<geo::Vec3>& cluster,
   int added = 0;
   int tries = 0;
   const int max_tries = n_noise * 50;
-  while (added < n_noise && tries++ < max_tries) {
+  while (added < n_noise && tries++ < max_tries)
+  {
     geo::Vec3 v; v.x = cx + ud(rng); v.y = cy + ud(rng); v.z = cz + ud(rng);
     double dx = v.x - cx, dy = v.y - cy, dz = v.z - cz;
     if (dx*dx + dy*dy + dz*dz <= Re2) continue;  // reject inside sphere
@@ -52,7 +55,8 @@ static void populateSynthetic(std::vector<geo::Vec3>& cluster,
     gt_labels.push_back(0);
     ++added;
   }
-  if (added < n_noise) {
+  if (added < n_noise)
+  {
     CONSOLE_BRIDGE_logWarn("populateSynthetic: produced %d/%d noise points (tight box/exclusion)", added, n_noise);
   }
 
@@ -63,7 +67,8 @@ static void populateSynthetic(std::vector<geo::Vec3>& cluster,
 
   std::vector<geo::Vec3> pts_shuf; pts_shuf.reserve(cluster.size());
   std::vector<int>      lab_shuf; lab_shuf.reserve(gt_labels.size());
-  for (size_t i = 0; i < idx.size(); ++i) {
+  for (size_t i = 0; i < idx.size(); ++i)
+  {
     pts_shuf.push_back(cluster[idx[i]]);
     lab_shuf.push_back(gt_labels[idx[i]]);
   }
@@ -71,7 +76,8 @@ static void populateSynthetic(std::vector<geo::Vec3>& cluster,
   gt_labels.swap(lab_shuf);
 }
 
-int main() {
+int main()
+{
   // Synthetic input
   GMMParams params; // defaults from header
   params.alpha = 1.0;   // Dirichlet prior (1.0 = uniform)
@@ -97,7 +103,8 @@ int main() {
   if (gt_labels.size() != N) gt_labels.resize(N, 0);
 
   int TP=0, TN=0, FP=0, FN=0;
-  for (size_t i = 0; i < N; ++i) {
+  for (size_t i = 0; i < N; ++i)
+  {
     bool pred_in = (labels[i] == inlier_component);
     bool gt_in   = (gt_labels[i] == 1);
     if (pred_in && gt_in) ++TP;
@@ -117,7 +124,8 @@ int main() {
   // Visualization: all points colored by prediction (green=inlier, red=outlier)
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>());
   cloud->reserve(N);
-  for (size_t i = 0; i < N; ++i) {
+  for (size_t i = 0; i < N; ++i)
+  {
     pcl::PointXYZRGB p;
     p.x = cluster[i].x; p.y = cluster[i].y; p.z = cluster[i].z;
     bool pred_in = (labels[i] == inlier_component);
@@ -127,7 +135,8 @@ int main() {
     cloud->push_back(p);
   }
   cloud->width = cloud->size(); cloud->height = 1; cloud->is_dense = false;
-  if (pcl::io::savePCDFileBinary("clusters_pred.pcd", *cloud) == 0) {
+  if (pcl::io::savePCDFileBinary("clusters_pred.pcd", *cloud) == 0)
+  {
     CONSOLE_BRIDGE_logInform("Wrote clusters_pred.pcd (green=inlier, red=outlier). View with: pcl_viewer clusters_pred.pcd");
   } else {
     CONSOLE_BRIDGE_logWarn("Failed to save clusters_pred.pcd");
@@ -137,7 +146,8 @@ int main() {
   {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr inliers(new pcl::PointCloud<pcl::PointXYZRGB>());
     inliers->reserve(N);
-    for (size_t i = 0; i < N; ++i) {
+    for (size_t i = 0; i < N; ++i)
+    {
       if (labels[i] != inlier_component) continue;
       pcl::PointXYZRGB p; p.x = cluster[i].x; p.y = cluster[i].y; p.z = cluster[i].z;
       p.r = p.g = p.b = 255;
