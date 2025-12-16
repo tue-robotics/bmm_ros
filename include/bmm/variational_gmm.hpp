@@ -1,10 +1,12 @@
-#ifndef VARIATIONAL_GMM_H_
-#define VARIATIONAL_GMM_H_
+#ifndef VARIATIONAL_GMM_HPP_
+#define VARIATIONAL_GMM_HPP_
 
 #include <Eigen/Dense>
-#include <vector>
-#include <cmath>
+
 #include <geolib/datatypes.h>
+
+#include <cmath>
+#include <vector>
 
 class VBGMM {
 public:
@@ -65,4 +67,4 @@ private:
     double logGammaMultivariate(double a, int p) const;
 };
 
-#endif  // VARIATIONAL_GMM_H_
+#endif  // VARIATIONAL_GMM_HPP_
