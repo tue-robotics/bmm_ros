@@ -1,11 +1,12 @@
-#ifndef BAYESIAN_BMM_H_
-#define BAYESIAN_BMM_H_
+#ifndef BAYESIAN_MIXTURE_MODEL_HPP_
+#define BAYESIAN_MIXTURE_MODEL_HPP_
 
 #include <Eigen/Dense>
-#include <vector>
-#include <cmath>
-#include <ros/console.h>
+
 #include <geolib/datatypes.h>
+
+#include <cmath>
+#include <vector>
 
 struct GMMParams
 {
@@ -59,4 +60,4 @@ private:
     void computeBoundingVolume(const Eigen::MatrixXd& data);
 };
 
-#endif  // BAYESIAN_BMM_H_
+#endif  // BAYESIAN_MIXTURE_MODEL_HPP_

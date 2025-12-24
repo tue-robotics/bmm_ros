@@ -25,7 +25,6 @@
   <exec_depend>eigen</exec_depend>
   <exec_depend>libboost-math-dev</exec_depend>
   <exec_depend>libpcl-io</exec_depend>
-  <exec_depend>rosconsole</exec_depend>
 
   <test_depend>catkin_lint_cmake</test_depend>
 
