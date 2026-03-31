@@ -1,6 +1,7 @@
 #include "bmm/bayesian_mixture_model.hpp"
 
 #include <console_bridge/console.h>
+#include <omp.h>
 
 MAPGMM::MAPGMM(int n_components, const std::vector<geo::Vec3>& points, const GMMParams & params) : K_(n_components), inlier_component_(0), params_(params)
 {
@@ -35,7 +36,8 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
     int N = points.size();
     Eigen::MatrixXd data(N, 3);
 
-    // Transform points to sensor frame
+    // Transform points to sensor frame (parallelized for large N)
+    #pragma omp parallel for if(N > 500)
     for (int i = 0; i < N; i++)
     {
         geo::Vec3 p_map = sensor_pose * points[i];
@@ -61,10 +63,10 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
     }
 
 
-    // EM iterations
-    int max_iter = 100;
-    // relative change in log-likelihood for convergence
-    double likelihood_change = 1e-4;
+    // EM iterations - reduced max_iter for speed
+    int max_iter = 50;  // Reduced from 100
+    // relative change in log-likelihood for convergence - slightly relaxed
+    double likelihood_change = 5e-4;  // Relaxed from 1e-4
     // previous log-likelihood is used to compute relative change
     double prev_log_likelihood = -1e10;
 
@@ -89,8 +91,9 @@ void MAPGMM::fit(const std::vector<geo::Vec3>& points, const geo::Pose3D& sensor
         mStep(data, resp_);
     }
 
-    // Assign labels based on highest responsibility
+    // Assign labels based on highest responsibility (parallelized)
     labels_.resize(N);
+    #pragma omp parallel for if(N > 500)
     for (int i = 0; i < N; i++)
     {
         Eigen::VectorXd r = resp_.row(i);
@@ -162,70 +165,77 @@ double MAPGMM::eStep(const Eigen::MatrixXd& data, Eigen::MatrixXd& resp_)
 {
     // Number of data points
     int N = data.rows();
-    double log_likelihood = 0.0;
 
-    // Calculate log probabilities for each data point and component (number of components is K_ which is uniform outlier + actual clusters)
-    Eigen::MatrixXd log_probs(N, K_);
+    // ========== OPTIMIZATION 1: Pre-compute Sigma inverses and log determinants ==========
+    // Compute these ONCE per iteration, not N×K times
+    std::vector<Eigen::Matrix3d> Sigma_inv(K_);
+    std::vector<double> log_det(K_);
+    std::vector<double> log_w(K_);
 
-    for (int k = 0; k < K_; k++)
+    double log_uniform = std::log(1.0 / volume_);
+    log_w[0] = std::log(std::max(weights_[0], 1e-12));
+
+    for (int k = 1; k < K_; k++)
     {
-        // Compute log probability of each point under component k
-        for (int i = 0; i < N; i++)
+        // Regularize covariance for numerical stability
+        Eigen::Matrix3d Sigma = covs_[k] + Eigen::Matrix3d::Identity() * 1e-9;
+        double det = Sigma.determinant();
+        if (det <= 1e-18 || !std::isfinite(det))
         {
-            Eigen::Vector3d x = data.row(i).transpose();
-            if (k == 0)
-            {
-                // For the outlier component, use a uniform distribution over the bounding volume
-                double uniform_prob = 1.0 / volume_;
-                log_probs(i, k) = std::log(weights_[k]) + std::log(uniform_prob);
-                continue;
-            }
-            else
-            {
-                Eigen::Vector3d diff = x - means_[k];
-
-                // Calculate log probability of x under Gaussian component k (Math is here)
-                // double log_prob = -0.5 * diff.transpose() * covs_[k].inverse() * diff
-                //                 - 0.5 * std::log(covs_[k].determinant())
-                //                 - 1.5 * std::log(2 * M_PI);
-
-                // Better: Calculate log probability of x under Gaussian component k
-                // AND
-                // Regularize covariance for numerical stability
-                Eigen::Matrix3d Sigma = covs_[k] + Eigen::Matrix3d::Identity() * 1e-9;
-                double det = Sigma.determinant();
-                if (det <= 1e-18 || !std::isfinite(det))
-                {
-                    Sigma += Eigen::Matrix3d::Identity() * 1e-6;
-                    det = Sigma.determinant();
-                }
-                double quad = (diff.transpose() * Sigma.inverse() * diff)(0,0);
-                if (!std::isfinite(quad)) quad = 1e6;  // fallback large cost
-
-                double log_prob = -0.5 * quad
-                                - 0.5 * std::log(std::max(det, 1e-24))
-                                - 1.5 * std::log(2 * M_PI);
-
-                // Max weight means the component is more likely to generate the point
-                double w = std::max(weights_[k], 1e-12);
-                // Add Dirichlet prior influence on weights
-                log_probs(i, k) = std::log(w) + log_prob;
-            }
+            Sigma += Eigen::Matrix3d::Identity() * 1e-6;
+            det = Sigma.determinant();
         }
+        Sigma_inv[k] = Sigma.inverse();
+        log_det[k] = std::log(std::max(det, 1e-24));
+        log_w[k] = std::log(std::max(weights_[k], 1e-12));
     }
 
-    // Calculate responsibilities (and normalize)
+    // ========== OPTIMIZATION 2 & 3: Vectorized + OpenMP parallel computation ==========
+    // Calculate log probabilities for each data point and component
+    Eigen::MatrixXd log_probs(N, K_);
+
+    // Use OpenMP reduction for log_likelihood to avoid race conditions
+    double log_likelihood = 0.0;
+
+    // Parallelize over points (N is typically large: 100-5000)
+    // Use if(N > 200) to avoid overhead for small datasets
+    #pragma omp parallel for reduction(+:log_likelihood) if(N > 200)
     for (int i = 0; i < N; i++)
     {
+        Eigen::Vector3d x = data.row(i).transpose();
+
+        // Component 0: uniform outlier
+        log_probs(i, 0) = log_w[0] + log_uniform;
+
+        // Components 1..K-1: Gaussian
+        for (int k = 1; k < K_; k++)
+        {
+            Eigen::Vector3d diff = x - means_[k];
+            // Use pre-computed inverse (OPTIMIZATION 1)
+            double quad = diff.transpose() * Sigma_inv[k] * diff;
+            if (!std::isfinite(quad)) quad = 1e6;
+
+            double log_prob = -0.5 * quad - 0.5 * log_det[k] - 1.5 * std::log(2 * M_PI);
+            log_probs(i, k) = log_w[k] + log_prob;
+        }
+
+        // ========== Responsibilities (softmax) - computed per-point to enable parallelism ==========
         // Numerical stability: subtract max value
         double max_log_prob = log_probs.row(i).maxCoeff();
-        Eigen::VectorXd exp_probs = (log_probs.row(i).array() - max_log_prob).exp();
-        double sum_exp = exp_probs.sum();
+        double sum_exp = 0.0;
+        for (int k = 0; k < K_; k++)
+        {
+            double exp_val = std::exp(log_probs(i, k) - max_log_prob);
+            resp_(i, k) = exp_val;
+            sum_exp += exp_val;
+        }
+        // Normalize
+        for (int k = 0; k < K_; k++)
+        {
+            resp_(i, k) /= sum_exp;
+        }
 
-        // Set responsibilities (p_z=k|x)
-        resp_.row(i) = exp_probs / sum_exp;
-
-        // Add to log likelihood
+        // Add to log likelihood (reduction handles thread-safety)
         log_likelihood += max_log_prob + std::log(sum_exp);
     }
 
@@ -236,44 +246,51 @@ void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp_)
 {
     int N = data.rows();
 
-    // For each component
-    for (int k = 0; k < K_; k++)
+    // ========== OPTIMIZATION: Vectorized computation using Eigen ==========
+
+    // Pre-compute responsibility sums for all components (vectorized)
+    Eigen::VectorXd Nk = resp_.colwise().sum();
+
+    // Update weights for all components at once (vectorized)
+    weights_ = (Nk.array() + alpha_ - 1.0) / (N + K_ * alpha_ - K_);
+
+    // Process each Gaussian component (k > 0, skip uniform outlier)
+    // Note: K is small (typically 2), so no benefit from parallelizing this outer loop
+    for (int k = 1; k < K_; k++)
     {
-        // Component responsibility sum
-        double Nk = resp_.col(k).sum();
-
-        // MAP update for weight (Dirichlet prior)
-        weights_[k] = (Nk + alpha_ - 1.0) / (N + K_ * alpha_ - K_);
-
-        if (k == 0) continue;  // Skip outlier component for weight update since uniform distribution does not depend on data
-
-        // Calculate mean of data
-        Eigen::Vector3d mean_data = Eigen::Vector3d::Zero();
-        for (int i = 0; i < N; i++)
+        double Nk_k = Nk[k];
+        if (Nk_k < 1e-10)
         {
-            mean_data += resp_(i, k) * data.row(i).transpose();
+            // Component has no responsibility, skip update
+            continue;
         }
-        mean_data /= Nk;
+
+        // ========== Vectorized mean computation ==========
+        // mean_data = sum(resp_ik * x_i) / Nk
+        // Using Eigen: (resp_.col(k).transpose() * data) gives weighted sum
+        Eigen::Vector3d mean_data = (resp_.col(k).transpose() * data).transpose() / Nk_k;
 
         // Mean update with prior
-        means_[k] = (Nk * mean_data + kappa0_[k] * mu0_[k]) / (Nk + kappa0_[k]);
+        means_[k] = (Nk_k * mean_data + kappa0_[k] * mu0_[k]) / (Nk_k + kappa0_[k]);
 
-        // Calculate weighted covariance of data
-        Eigen::Matrix3d cov_data = Eigen::Matrix3d::Zero();
-        for (int i = 0; i < N; i++)
-        {
-            Eigen::Vector3d diff = data.row(i).transpose() - mean_data;
-            cov_data += resp_(i, k) * diff * diff.transpose();
-        }
-        cov_data /= Nk;
+        // ========== Vectorized covariance computation ==========
+        // Center the data around mean_data
+        Eigen::MatrixXd centered = data.rowwise() - mean_data.transpose();  // N x 3
+
+        // Weight by sqrt of responsibilities for efficient computation
+        // cov = sum(resp_ik * (x_i - mu)(x_i - mu)^T) / Nk
+        // This is equivalent to: centered.T * diag(resp) * centered / Nk
+        Eigen::VectorXd sqrt_resp = resp_.col(k).array().sqrt();
+        Eigen::MatrixXd weighted_centered = sqrt_resp.asDiagonal() * centered;  // N x 3
+        Eigen::Matrix3d cov_data = (weighted_centered.transpose() * weighted_centered) / Nk_k;
 
         // Additional term from the mean update
         Eigen::Vector3d mean_diff = mean_data - mu0_[k];
-        Eigen::Matrix3d mean_cov = (kappa0_[k] * Nk / (kappa0_[k] + Nk)) *
+        Eigen::Matrix3d mean_cov = (kappa0_[k] * Nk_k / (kappa0_[k] + Nk_k)) *
                                     mean_diff * mean_diff.transpose();
 
         // MAP update for covariance (Inverse-Wishart prior)
-        covs_[k] = (Psi0_[k] + Nk * cov_data + mean_cov) / (Nk + nu0_[k] + 3 + 1);
+        covs_[k] = (Psi0_[k] + Nk_k * cov_data + mean_cov) / (Nk_k + nu0_[k] + 3 + 1);
 
         // Add small regularization to ensure positive definiteness
         covs_[k] += Eigen::Matrix3d::Identity() * 1e-6;
@@ -285,22 +302,14 @@ void MAPGMM::mStep(const Eigen::MatrixXd& data, const Eigen::MatrixXd& resp_)
 
 void MAPGMM::determineInlierComponent()
 {
-     // Compute N_k: total responsibility mass for each component
-    std::vector<double> Nk(K_, 0.0);
-    int N = labels_.size();  // or you can use resp.rows()
-
-    for (int i = 0; i < N; i++)
-    {
-        for (int k = 0; k < K_; k++)
-        {
-            Nk[k] += resp_(i, k);  // You'll need to save `resp_` as a class member
-        }
-    }
+    // ========== OPTIMIZATION: Vectorized computation ==========
+    // Compute N_k: total responsibility mass for each component
+    Eigen::VectorXd Nk = resp_.colwise().sum();
 
     // Find the component with max Nk
     // Skip the outlier uniform distribution component (k=0)
     inlier_component_ = 1;
-    for (int k = 1; k < K_; k++)
+    for (int k = 2; k < K_; k++)
     {
         if (Nk[k] > Nk[inlier_component_])
         {
